@@ -1,7 +1,10 @@
+using E_Commerce;
 using E_Commerce.Data;
 using E_Commerce.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +18,22 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IProduct,ManageProduct>();
+builder.Services.AddAuthentication().AddJwtBearer(o =>
+{
+    o.RequireHttpsMetadata = false;
+    o.SaveToken = true;
+    o.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidIssuer = builder.Configuration["JWT:Issuer"],
+        ValidAudience = builder.Configuration["JWT:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["JWT:Key"]))
+    };
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -39,6 +58,25 @@ app.UseCors(x => x
 app.UseRouting();
 
 app.UseAuthentication();
+using (var scope = app.Services.CreateScope())
+{
+    var serviceProvider = scope.ServiceProvider;
+    try
+    {
+        var userManager = serviceProvider.
+GetRequiredService<UserManager<IdentityUser>>();
+
+        var roleManager = serviceProvider.
+GetRequiredService<RoleManager<IdentityRole>>();
+
+      await  MyIdentityDataInitializer.SeedData
+(userManager, roleManager);
+    }
+    catch
+    {
+
+    }
+}
 app.UseAuthorization();
 
 app.MapControllerRoute(

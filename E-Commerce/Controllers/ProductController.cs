@@ -44,11 +44,34 @@ namespace E_Commerce.Controllers
             return Ok("the Product Added Successfully");
         }
         [HttpPost("UpdateProduct")]
-        public async Task<IActionResult> UpdateProduct([FromBody]Product product)
+        public async Task<IActionResult> UpdateProduct([FromBody]Product data)
         {
             if (!ModelState.IsValid) return BadRequest("The Data Is Not Valid");
-          //await  _product.EditProduct(product);
-            return Ok("the Product Added Successfully");
+            var productOld = await _product.GetById(data.Id);
+            if (data.File != null)
+            {
+                string webRootPath = _webHostEnvironment.WebRootPath;
+                string upload = webRootPath + @"/images/";
+                string fileName = Guid.NewGuid().ToString();
+                string extension = Path.GetExtension(data.File.FileName);
+                var path = webRootPath + productOld.Image;
+                if (System.IO.File.Exists(path))
+                {
+                    System.IO.File.Delete(path);
+                }
+                using (var fileStream = new FileStream(Path.Combine(upload, fileName + extension), FileMode.Create))
+                {
+                    await data.File.CopyToAsync(fileStream);
+                }
+                data.Image = "/images/" + fileName + extension;
+
+            }
+            else
+            {
+                data.Image = productOld.Image;
+            }
+            await  _product.EditProduct(data);
+            return Ok("the Product Updated Successfully");
         }
         [HttpGet("DeleteProduct/{id}")]
         public  async Task<IActionResult>  DeleteProduct(int  id)
